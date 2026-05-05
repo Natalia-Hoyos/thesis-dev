@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -10,30 +11,37 @@ from livekit.agents import (
     RoomInputOptions,
     WorkerOptions,
     cli,
-    inference,
     llm,
     metrics,
     stt,
     tts,
 )
-from livekit.plugins import noise_cancellation, silero
+from livekit.plugins import cartesia, deepgram, noise_cancellation, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from trivia_game import TriviaGame
 
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+
+trivia_game = TriviaGame(
+    questions_path=Path(__file__).with_name("trivia_questions.json"),
+    state_path=Path(__file__).with_name(".trivia_state.json"),
+)
 
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
             instructions="""You are a warm and friendly social companion robot designed to support older adults through conversation and engaging activities.
-Your personality is calm, patient, encouraging, humorous,and genuinely curious about the person you're speaking with. You speak clearly and at a comfortable pace. 
+You are Gladys, your personality is calm, patient, encouraging, humorous,and genuinely curious about the person you're speaking with. 
 
 You can play trivia with the user. When the user wants to play trivia:
 1. Ask them if they want easy or hard questions (only once, when they first choose to play).
 2. Call the start_trivia tool with their chosen difficulty.
-3. For each turn: give a short, warm reaction to their answer, then go straight to the next question at the same difficulty. Do not ask every time whether they want to keep playing or change difficulty, and do not pause for a menu—assume they will keep going until they clearly want to stop or only when they ask to switch easy or hard. If they want a different difficulty mid-game, call start_trivia with the new level when they ask.
+3. The start_trivia tool returns the exact next question text from a curated question bank.
+4. After the user answers a trivia question, call check_trivia_answer with their answer to verify correctness.
+5. For each turn: give a short, warm reaction based on the check_trivia_answer result, then call start_trivia again at the same difficulty and ask that question. Do not ask every time whether they want to keep playing or change difficulty, and do not pause for a menu—assume they will keep going until they clearly want to stop or only when they ask to switch easy or hard. If they want a different difficulty mid-game, call start_trivia with the new level when they ask.
 """,
         )
 
@@ -44,46 +52,25 @@ You can play trivia with the user. When the user wants to play trivia:
         Args:
             difficulty: The difficulty level chosen by the user. Either 'easy' or 'hard'.
         """
-        if difficulty not in ("easy", "hard"):
-            difficulty = "easy"
+        return trivia_game.next_question(difficulty)
 
-        prompts = {
-            "easy": (
-                "Generate a single easy-difficulty trivia question. "
-                "Topics can include history, nature, food, music, or general knowledge. "
-                "Ask only the question, nothing else."
-            ),
-            "hard": (
-                "Generate a single hard-difficulty trivia question. "
-                "Topics can include science, world history, literature, or geography. "
-                "Ask only the question, nothing else."
-            ),
-        }
+    @llm.function_tool
+    async def check_trivia_answer(self, answer: str) -> str:
+        """Check the user's answer against the current trivia question.
 
-        return prompts[difficulty]
+        Args:
+            answer: User's spoken or typed answer.
+        """
+        return trivia_game.check_answer(answer)
 
 
 async def entrypoint(ctx: JobContext):
     session = AgentSession(
-        llm=llm.FallbackAdapter(
-            [
-                inference.LLM.from_model_string("openai/gpt-4.1-mini"),
-                inference.LLM.from_model_string("google/gemini-2.5-flash"),
-            ]
-        ),
-        stt=stt.FallbackAdapter(
-            [
-                inference.STT.from_model_string("deepgram/nova-3"),
-                inference.STT.from_model_string("assemblyai/universal-streaming"),
-            ]
-        ),
-        tts=tts.FallbackAdapter(
-            [
-                inference.TTS.from_model_string(
-                    "cartesia/sonic-3:f31cc6a7-c1e8-4764-980c-60a361443dd1" # Australian woman voice
-                ),
-                inference.TTS.from_model_string("inworld/inworld-tts-1"),
-            ]
+        llm=openai.LLM(model="gpt-4.1-mini"),
+        stt=deepgram.STT(model="nova-3"),
+        tts=cartesia.TTS(
+            model="sonic-3",
+            voice="f31cc6a7-c1e8-4764-980c-60a361443dd1",  # Australian woman voice
         ),
         vad=silero.VAD.load(),
         turn_detection=MultilingualModel(),
@@ -127,7 +114,7 @@ async def entrypoint(ctx: JobContext):
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
         ),
-        record=False # Disable observanility, no logs or data recorded.
+        record=False # Disable observability, no logs or data recorded.
     )
 
     await ctx.connect()
