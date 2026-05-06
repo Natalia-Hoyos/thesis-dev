@@ -18,15 +18,22 @@ from livekit.agents import (
 )
 from livekit.plugins import cartesia, deepgram, noise_cancellation, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from trivia_game import TriviaGame
+from guess_the_song.guess_the_song_game import GuessTheSongGame
+from trivia.trivia_game import TriviaGame
 
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+_ROOT = Path(__file__).resolve().parent
+
 trivia_game = TriviaGame(
-    questions_path=Path(__file__).with_name("trivia_questions.json"),
-    state_path=Path(__file__).with_name(".trivia_state.json"),
+    questions_path=_ROOT / "trivia" / "trivia_questions.json",
+    state_path=_ROOT / "trivia" / ".trivia_state.json",
+)
+
+guess_the_song_game = GuessTheSongGame(
+    state_path=_ROOT / "guess_the_song" / ".guess_the_song_state.json",
 )
 
 
@@ -42,6 +49,16 @@ You can play trivia with the user. When the user wants to play trivia:
 3. The start_trivia tool returns the exact next question text from a curated question bank.
 4. After the user answers a trivia question, call check_trivia_answer with their answer to verify correctness.
 5. For each turn: give a short, warm reaction based on the check_trivia_answer result, then call start_trivia again at the same difficulty and ask that question. Do not ask every time whether they want to keep playing or change difficulty, and do not pause for a menu—assume they will keep going until they clearly want to stop or only when they ask to switch easy or hard. If they want a different difficulty mid-game, call start_trivia with the new level when they ask.
+
+You can also play "guess the song" using a short thematic clue written each round by a clue generator—the tools supply that text (never recalled from your memory alone) plus the authoritative title and artist used only for scoring.
+When the user wants this game:
+1. Ask them to pick one era: 1940s–1960s, 1960s–1980s, 1980s–2000, or 2000–now (only clarify once when they start the game).
+2. Call start_guess_the_song with the matching era_code: use exactly one of:
+   `1940s_1960s`, `1960s_1980s`, `1980s_2000`, or `2000_now`.
+3. The tool returns instructions and the clue: read the description aloud warmly and naturally, without mentioning the song title or artist yourself until they guess or ask for the answer.
+4. After they respond with a guess, call check_guess_the_song_answer with their guess; react briefly to the tool result.
+5. For the next song at the same era, call start_guess_the_song again with the same era_code—assume they continue until they say stop or switch era.
+If they switch era mid-game, use the new era_code on the next start_guess_the_song call.
 """,
         )
 
@@ -62,6 +79,28 @@ You can play trivia with the user. When the user wants to play trivia:
             answer: User's spoken or typed answer.
         """
         return trivia_game.check_answer(answer)
+
+    @llm.function_tool
+    async def start_guess_the_song(self, era_code: str) -> str:
+        """Start a guess-the-song round: selects a curated song from the bank and returns a thematic clue.
+
+        Args:
+            era_code: One of '1940s_1960s', '1960s_1980s', '1980s_2000', '2000_now'
+                mapping to roughly 1940–1969, 1960–1989, 1980–1999, and 2000–present.
+        """
+        return await guess_the_song_game.next_challenge(era_code)
+
+    @llm.function_tool
+    async def check_guess_the_song_answer(self, guess: str) -> str:
+        """Check the user's guess for the active guess-the-song round.
+
+        Args:
+            guess: What they think the song is (usually title with optional artist).
+        """
+        try:
+            return guess_the_song_game.check_answer(guess)
+        except ValueError as exc:
+            return str(exc)
 
 
 async def entrypoint(ctx: JobContext):
