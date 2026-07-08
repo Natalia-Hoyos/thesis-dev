@@ -18,6 +18,7 @@ from livekit.agents import (
 )
 from livekit.plugins import cartesia, deepgram, noise_cancellation, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from crossword.crossword_game import CrosswordGame
 from guess_the_song.guess_the_song_game import GuessTheSongGame
 from trivia.trivia_game import TriviaGame
 
@@ -36,12 +37,18 @@ guess_the_song_game = GuessTheSongGame(
     state_path=_ROOT / "guess_the_song" / ".guess_the_song_state.json",
 )
 
+crossword_game = CrosswordGame(
+    puzzles_path=_ROOT / "crossword" / "crossword_puzzles.json",
+    state_path=_ROOT / "crossword" / ".crossword_state.json",
+)
+
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
             instructions="""You are a warm and friendly social companion robot designed to support older adults through conversation and engaging activities.
-You are Gladys, your personality is calm, patient, encouraging, humorous,and genuinely curious about the person you're speaking with. 
+You are Gladys, your personality is calm, patient, encouraging, humorous,and genuinely curious about the person you're speaking with.
+Speak slowly, clearly, and unhurriedly at all times.
 
 You can play trivia with the user. When the user wants to play trivia:
 1. Ask them if they want easy or hard questions (only once, when they first choose to play).
@@ -59,6 +66,18 @@ When the user wants this game:
 4. After they respond with a guess, call check_guess_the_song_answer with their guess; react briefly to the tool result.
 5. For the next song at the same era, call start_guess_the_song again with the same era_code—assume they continue until they say stop or switch era.
 If they switch era mid-game, use the new era_code on the next start_guess_the_song call.
+
+You can also play crossword—a visual game with a separate window showing numbered blanks. The tools supply exact clue text (never from memory alone).
+When the user wants crossword:
+1. Ask easy or medium once when they first choose to play (default to easy if they don't mind).
+2. Call start_crossword with their chosen difficulty. A browser window opens with the puzzle.
+3. When a tool returns a crossword clue, read each line separately with a brief pause between lines: first the number, then "the clue is" and the clue, then the letter count. Do not skip any part, and do not say the answer.
+4. After they answer, call check_crossword_answer with their guess; react briefly to the result.
+5. If they are wrong, the tool will NOT reveal the answer—it repeats the clue. Encourage them and let them try again. Never reveal the answer yourself after a wrong guess.
+6. If they ask for help, a hint, or "another clue", call get_crossword_hint. If they ask to hear the clue again, call get_crossword_clue.
+7. Only if they clearly give up or ask for the answer (e.g. "I give up", "what is it?", "tell me the answer"), call reveal_crossword_answer.
+8. If check_crossword_answer or reveal_crossword_answer includes the next clue, read it in the same way.
+9. When the puzzle is complete, offer another crossword or a different activity. For another round at the same difficulty, call start_crossword again.
 """,
         )
 
@@ -91,6 +110,54 @@ If they switch era mid-game, use the new era_code on the next start_guess_the_so
         return await guess_the_song_game.next_challenge(era_code)
 
     @llm.function_tool
+    async def start_crossword(self, difficulty: str = "easy") -> str:
+        """Start a crossword puzzle and open the visual display window.
+
+        Args:
+            difficulty: Either 'easy' or 'medium'. Defaults to 'easy'.
+        """
+        try:
+            return crossword_game.start_crossword(difficulty)
+        except ValueError as exc:
+            return str(exc)
+
+    @llm.function_tool
+    async def get_crossword_clue(self) -> str:
+        """Repeat the current crossword clue without advancing the puzzle."""
+        try:
+            return crossword_game.get_crossword_clue()
+        except ValueError as exc:
+            return str(exc)
+
+    @llm.function_tool
+    async def get_crossword_hint(self) -> str:
+        """Give extra help for the current crossword word without revealing the full answer."""
+        try:
+            return crossword_game.get_crossword_hint()
+        except ValueError as exc:
+            return str(exc)
+
+    @llm.function_tool
+    async def reveal_crossword_answer(self) -> str:
+        """Reveal the answer for the current crossword word when the user gives up or asks for it."""
+        try:
+            return crossword_game.reveal_crossword_answer()
+        except ValueError as exc:
+            return str(exc)
+
+    @llm.function_tool
+    async def check_crossword_answer(self, answer: str) -> str:
+        """Check the user's answer for the current crossword word.
+
+        Args:
+            answer: The word the user spoke for the active clue.
+        """
+        try:
+            return crossword_game.check_answer(answer)
+        except ValueError as exc:
+            return str(exc)
+
+    @llm.function_tool
     async def check_guess_the_song_answer(self, guess: str) -> str:
         """Check the user's guess for the active guess-the-song round.
 
@@ -104,13 +171,17 @@ If they switch era mid-game, use the new era_code on the next start_guess_the_so
 
 
 async def entrypoint(ctx: JobContext):
+    cartesia_tts = cartesia.TTS(
+        model="sonic-3",
+        voice="f31cc6a7-c1e8-4764-980c-60a361443dd1",  # Australian woman voice
+        speed=0.8,
+        text_pacing=True,
+    )
+
     session = AgentSession(
         llm=openai.LLM(model="gpt-4.1-mini", store=False),
         stt=deepgram.STT(model="nova-3", mip_opt_out=True),
-        tts=cartesia.TTS(
-            model="sonic-3",
-            voice="f31cc6a7-c1e8-4764-980c-60a361443dd1",  # Australian woman voice
-        ),
+        tts=cartesia_tts,
         vad=silero.VAD.load(),
         turn_detection=MultilingualModel(),
         #preemptine_generation=True,

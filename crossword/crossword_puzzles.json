@@ -1,0 +1,39 @@
+[
+  {
+    "id": "crossword_01",
+    "title": "Crossword 1",
+    "difficulty": "easy",
+    "words": [
+      {
+        "number": 1,
+        "answer": "CHAMP",
+        "clue": "Trophy winner"
+      },
+      {
+        "number": 2,
+        "answer": "OATS",
+        "clue": "Quaker grains"
+      },
+      {
+        "number": 3,
+        "answer": "MANDELA",
+        "clue": "Former South African president Nelson"
+      },
+      {
+        "number": 4,
+        "answer": "BAD",
+        "clue": "Not great"
+      },
+      {
+        "number": 5,
+        "answer": "ARES",
+        "clue": "Greek war god"
+      },
+      {
+        "number": 6,
+        "answer": "WRAP",
+        "clue": "Tortilla sandwich"
+      }
+    ]
+  }
+]
