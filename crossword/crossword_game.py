@@ -8,7 +8,7 @@ from crossword.display_server import ensure_running, update_state
 
 
 class CrosswordGame:
-    """Crossword v1: numbered blanks, curated puzzle bank, local display window."""
+    """Crossword with curated puzzle bank, grid display, and local display window."""
 
     def __init__(self, puzzles_path: Path, state_path: Path) -> None:
         self.puzzles_path = puzzles_path
@@ -42,6 +42,7 @@ class CrosswordGame:
             "id": selected["id"],
             "title": selected["title"],
             "difficulty": normalized,
+            "size": selected["size"],
             "words": selected["words"],
             "current_index": 0,
             "solved_numbers": [],
@@ -194,8 +195,10 @@ class CrosswordGame:
     def _format_clue(self, word: dict[str, Any]) -> str:
         length = len(word["answer"])
         letter_word = "letter" if length == 1 else "letters"
+        direction = word.get("direction", "across")
+        direction_label = "across" if direction == "across" else "down"
         return (
-            f"Number {word['number']}.\n"
+            f"Number {word['number']} {direction_label}.\n"
             f"The clue is: {word['clue']}.\n"
             f"That is {length} {letter_word}."
         )
@@ -211,27 +214,104 @@ class CrosswordGame:
         solved_numbers = set(current.get("solved_numbers", []))
         current_index = current.get("current_index", 0)
         solved_count = len(solved_numbers)
+        current_number = (
+            words[current_index]["number"]
+            if current_index < len(words)
+            else None
+        )
 
-        display_words: list[dict[str, Any]] = []
-        for idx, word in enumerate(words):
+        size = current.get("size")
+        if not isinstance(size, dict):
+            raise ValueError("Active crossword is missing grid size.")
+
+        rows = int(size.get("rows", 0))
+        cols = int(size.get("cols", 0))
+        if rows <= 0 or cols <= 0:
+            raise ValueError("Active crossword has an invalid grid size.")
+
+        cells: list[list[dict[str, Any]]] = [
+            [{"type": "block"} for _ in range(cols)] for _ in range(rows)
+        ]
+        word_numbers_by_cell: dict[tuple[int, int], int] = {}
+
+        for word in words:
             number = word["number"]
-            solved = number in solved_numbers
-            display_words.append(
-                {
-                    "number": number,
-                    "length": len(word["answer"]),
-                    "solved": solved,
-                    "letters": word["answer"] if solved else None,
-                    "current": idx == current_index and not solved,
-                }
-            )
+            answer = word["answer"]
+            row = int(word["row"])
+            col = int(word["col"])
+            direction = word["direction"]
+            delta_row, delta_col = (0, 1) if direction == "across" else (1, 0)
+
+            if (row, col) not in word_numbers_by_cell:
+                word_numbers_by_cell[(row, col)] = number
+
+            for offset, letter in enumerate(answer):
+                r = row + offset * delta_row
+                c = col + offset * delta_col
+                if not (0 <= r < rows and 0 <= c < cols):
+                    raise ValueError(
+                        f"Word {number} extends outside the {rows}x{cols} grid."
+                    )
+
+                existing = cells[r][c]
+                if existing["type"] == "letter":
+                    if existing["solution"] != letter:
+                        raise ValueError(
+                            f"Grid conflict at ({r}, {c}) for word {number}."
+                        )
+                    existing["word_numbers"].add(number)
+                else:
+                    cells[r][c] = {
+                        "type": "letter",
+                        "solution": letter,
+                        "word_numbers": {number},
+                        "display": None,
+                        "solved": False,
+                        "current": False,
+                    }
+
+        for r in range(rows):
+            for c in range(cols):
+                cell = cells[r][c]
+                if cell["type"] != "letter":
+                    continue
+
+                word_nums = cell["word_numbers"]
+                cell["solved"] = any(n in solved_numbers for n in word_nums)
+                cell["current"] = (
+                    current_number is not None and current_number in word_nums
+                )
+                if cell["solved"]:
+                    cell["display"] = cell["solution"]
+                else:
+                    cell["display"] = None
+
+                start_number = word_numbers_by_cell.get((r, c))
+                cell["number"] = start_number
+
+        flat_cells: list[dict[str, Any]] = []
+        for r in range(rows):
+            for c in range(cols):
+                cell = cells[r][c]
+                if cell["type"] == "block":
+                    flat_cells.append({"type": "block"})
+                else:
+                    flat_cells.append(
+                        {
+                            "type": "letter",
+                            "number": cell.get("number"),
+                            "display": cell.get("display"),
+                            "solved": cell.get("solved", False),
+                            "current": cell.get("current", False),
+                        }
+                    )
 
         update_state(
             {
                 "active": True,
                 "puzzle_id": current["id"],
                 "title": current["title"],
-                "words": display_words,
+                "grid": {"rows": rows, "cols": cols, "cells": flat_cells},
                 "progress": {"solved": solved_count, "total": len(words)},
                 "complete": current_index >= len(words),
             }
@@ -273,6 +353,7 @@ class CrosswordGame:
             title = item.get("title")
             difficulty = item.get("difficulty")
             raw_words = item.get("words")
+            raw_size = item.get("size")
             if (
                 not isinstance(puzzle_id, str)
                 or not puzzle_id.strip()
@@ -281,7 +362,13 @@ class CrosswordGame:
                 or difficulty not in ("easy", "medium")
                 or not isinstance(raw_words, list)
                 or not raw_words
+                or not isinstance(raw_size, dict)
             ):
+                continue
+
+            rows = raw_size.get("rows")
+            cols = raw_size.get("cols")
+            if not isinstance(rows, int) or not isinstance(cols, int) or rows <= 0 or cols <= 0:
                 continue
 
             words: list[dict[str, Any]] = []
@@ -292,6 +379,9 @@ class CrosswordGame:
                 answer = raw_word.get("answer")
                 clue = raw_word.get("clue")
                 alternate_clue = raw_word.get("alternate_clue")
+                row = raw_word.get("row")
+                col = raw_word.get("col")
+                direction = raw_word.get("direction")
                 if (
                     isinstance(number, int)
                     and number > 0
@@ -299,11 +389,19 @@ class CrosswordGame:
                     and answer.strip()
                     and isinstance(clue, str)
                     and clue.strip()
+                    and isinstance(row, int)
+                    and row >= 0
+                    and isinstance(col, int)
+                    and col >= 0
+                    and direction in ("across", "down")
                 ):
                     entry: dict[str, Any] = {
                         "number": number,
                         "answer": answer.strip().upper(),
                         "clue": clue.strip(),
+                        "row": row,
+                        "col": col,
+                        "direction": direction,
                     }
                     if isinstance(alternate_clue, str) and alternate_clue.strip():
                         entry["alternate_clue"] = alternate_clue.strip()
@@ -315,6 +413,7 @@ class CrosswordGame:
                         "id": puzzle_id.strip(),
                         "title": title.strip(),
                         "difficulty": difficulty,
+                        "size": {"rows": rows, "cols": cols},
                         "words": sorted(words, key=lambda w: w["number"]),
                     }
                 )

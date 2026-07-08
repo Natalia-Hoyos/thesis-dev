@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -171,6 +172,12 @@ When the user wants crossword:
 
 
 async def entrypoint(ctx: JobContext):
+    # Reduce false stops from hallway/room noise: require clearer, longer speech
+    # before interrupting Gladys, and resume if the interruption was only noise.
+    vad_activation_threshold = float(os.environ.get("VAD_ACTIVATION_THRESHOLD", "0.65"))
+    min_interruption_duration = float(os.environ.get("MIN_INTERRUPTION_DURATION", "1.2"))
+    min_interruption_words = int(os.environ.get("MIN_INTERRUPTION_WORDS", "2"))
+
     cartesia_tts = cartesia.TTS(
         model="sonic-3",
         voice="f31cc6a7-c1e8-4764-980c-60a361443dd1",  # Australian woman voice
@@ -182,8 +189,15 @@ async def entrypoint(ctx: JobContext):
         llm=openai.LLM(model="gpt-4.1-mini", store=False),
         stt=deepgram.STT(model="nova-3", mip_opt_out=True),
         tts=cartesia_tts,
-        vad=silero.VAD.load(),
+        vad=silero.VAD.load(
+            activation_threshold=vad_activation_threshold,
+            min_speech_duration=0.12,
+        ),
         turn_detection=MultilingualModel(),
+        min_interruption_duration=min_interruption_duration,
+        min_interruption_words=min_interruption_words,
+        false_interruption_timeout=2.5,
+        resume_false_interruption=True,
         #preemptine_generation=True,
     )
 

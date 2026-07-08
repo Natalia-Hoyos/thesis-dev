@@ -1,4 +1,4 @@
-"""Local web display for the crossword game (v1: numbered blanks)."""
+"""Local web display for the crossword game."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ _BLANK_STATE: dict[str, Any] = {
     "active": False,
     "puzzle_id": None,
     "title": "Crossword",
-    "words": [],
+    "grid": None,
     "progress": {"solved": 0, "total": 0},
     "complete": False,
 }
@@ -47,6 +47,8 @@ def _html_page() -> str:
       --accent: #2f6fed;
       --solved: #1f7a4d;
       --blank: #c7d2e0;
+      --block: #1f2933;
+      --cell-border: #9aa8b8;
     }
     * { box-sizing: border-box; }
     body {
@@ -60,7 +62,7 @@ def _html_page() -> str:
       padding: 2rem 1.25rem;
     }
     .panel {
-      width: min(760px, 100%);
+      width: min(900px, 100%);
       background: var(--card);
       border-radius: 20px;
       box-shadow: 0 18px 50px rgba(31, 41, 51, 0.12);
@@ -72,7 +74,7 @@ def _html_page() -> str:
       letter-spacing: -0.02em;
     }
     .subtitle {
-      margin: 0 0 1.75rem;
+      margin: 0 0 1.5rem;
       color: var(--muted);
       font-size: 1.1rem;
     }
@@ -86,51 +88,61 @@ def _html_page() -> str:
       font-weight: 600;
       font-size: 1rem;
     }
-    .word-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
+    .grid-wrap {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+    }
+    .crossword-grid {
       display: grid;
-      gap: 1.1rem;
+      gap: 0;
+      border: 3px solid var(--block);
+      background: var(--block);
+      box-shadow: 0 10px 30px rgba(31, 41, 51, 0.12);
     }
-    .word-item {
-      border: 1px solid #e6ebf2;
-      border-radius: 16px;
-      padding: 1rem 1.15rem;
-      background: #fbfcfe;
+    .cell {
+      position: relative;
+      width: clamp(2.4rem, 6vw, 3.4rem);
+      height: clamp(2.4rem, 6vw, 3.4rem);
+      background: #fff;
+      border: 1px solid var(--cell-border);
     }
-    .word-item.current {
-      border-color: #9db7f2;
-      box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.12);
+    .cell.block {
+      background: var(--block);
+      border-color: var(--block);
     }
-    .word-item.solved {
-      border-color: #b9e3cb;
+    .cell.current {
+      background: #eef3ff;
+      box-shadow: inset 0 0 0 2px #2f6fed;
+    }
+    .cell.solved {
       background: #f4fbf7;
     }
-    .word-header {
+    .cell-number {
+      position: absolute;
+      top: 0.12rem;
+      left: 0.18rem;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+      pointer-events: none;
+    }
+    .cell-letter {
+      width: 100%;
+      height: 100%;
       display: flex;
-      align-items: baseline;
-      gap: 0.75rem;
-      margin-bottom: 0.55rem;
-      flex-wrap: wrap;
-    }
-    .word-number {
-      font-weight: 700;
-      font-size: 1.15rem;
-      color: var(--accent);
-      min-width: 2rem;
-    }
-    .letters {
+      align-items: center;
+      justify-content: center;
       font-family: "Consolas", "Courier New", monospace;
-      font-size: clamp(1.5rem, 3vw, 2rem);
-      letter-spacing: 0.35rem;
+      font-size: clamp(1.2rem, 3vw, 1.75rem);
       font-weight: 700;
+      color: var(--blank);
+      text-transform: uppercase;
     }
-    .letters.solved { color: var(--solved); }
-    .letters.blank { color: var(--blank); }
-    .length {
-      color: var(--muted);
-      font-size: 0.95rem;
+    .cell.solved .cell-letter {
+      color: var(--solved);
     }
     .idle {
       text-align: center;
@@ -155,53 +167,60 @@ def _html_page() -> str:
     <h1 id="title">Crossword</h1>
     <p class="subtitle" id="subtitle">Waiting for a puzzle to start…</p>
     <div class="progress" id="progress" hidden></div>
-    <ul class="word-list" id="word-list"></ul>
+    <div class="grid-wrap" id="grid-wrap" hidden>
+      <div class="crossword-grid" id="crossword-grid"></div>
+    </div>
+    <div class="idle" id="idle">Start a crossword with Gladys to see your puzzle here.</div>
     <div class="complete-banner" id="complete" hidden>Puzzle complete!</div>
   </main>
   <script>
     const titleEl = document.getElementById("title");
     const subtitleEl = document.getElementById("subtitle");
     const progressEl = document.getElementById("progress");
-    const listEl = document.getElementById("word-list");
+    const gridWrapEl = document.getElementById("grid-wrap");
+    const gridEl = document.getElementById("crossword-grid");
+    const idleEl = document.getElementById("idle");
     const completeEl = document.getElementById("complete");
 
-    function renderLetters(word) {
-      if (word.solved && word.letters) {
-        return word.letters.split("").join(" ");
-      }
-      const count = word.length || 0;
-      return Array(count).fill("_").join(" ");
-    }
-
     function render(state) {
-      if (!state.active) {
+      if (!state.active || !state.grid) {
         titleEl.textContent = "Crossword";
         subtitleEl.textContent = "Waiting for a puzzle to start…";
         progressEl.hidden = true;
-        listEl.innerHTML = '<li class="idle">Start a crossword with Gladys to see your puzzle here.</li>';
+        gridWrapEl.hidden = true;
+        idleEl.hidden = false;
+        gridEl.innerHTML = "";
         completeEl.hidden = true;
         return;
       }
 
+      const grid = state.grid;
       titleEl.textContent = state.title || "Crossword";
       subtitleEl.textContent = "Answer by voice — Gladys will read each clue.";
       progressEl.hidden = false;
       progressEl.textContent = `${state.progress.solved} of ${state.progress.total} solved`;
+      idleEl.hidden = true;
+      gridWrapEl.hidden = false;
       completeEl.hidden = !state.complete;
 
-      listEl.innerHTML = state.words.map((word) => {
-        const classes = ["word-item"];
-        if (word.current) classes.push("current");
-        if (word.solved) classes.push("solved");
-        const letterClass = word.solved ? "letters solved" : "letters blank";
+      gridEl.style.gridTemplateColumns = `repeat(${grid.cols}, 1fr)`;
+      gridEl.innerHTML = grid.cells.map((cell) => {
+        if (cell.type === "block") {
+          return '<div class="cell block"></div>';
+        }
+
+        const classes = ["cell"];
+        if (cell.current) classes.push("current");
+        if (cell.solved) classes.push("solved");
+        const numberHtml = cell.number
+          ? `<span class="cell-number">${cell.number}</span>`
+          : "";
+        const letter = cell.display || "";
         return `
-          <li class="${classes.join(" ")}">
-            <div class="word-header">
-              <span class="word-number">${word.number}.</span>
-              <span class="${letterClass}">${renderLetters(word)}</span>
-              <span class="length">(${word.length} letters)</span>
-            </div>
-          </li>`;
+          <div class="${classes.join(" ")}">
+            ${numberHtml}
+            <div class="cell-letter">${letter}</div>
+          </div>`;
       }).join("");
     }
 
