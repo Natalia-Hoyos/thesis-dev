@@ -105,8 +105,8 @@ If they switch era mid-game, use the new era_code on the next start_guess_the_so
 
 async def entrypoint(ctx: JobContext):
     session = AgentSession(
-        llm=openai.LLM(model="gpt-4.1-mini"),
-        stt=deepgram.STT(model="nova-3"),
+        llm=openai.LLM(model="gpt-4.1-mini", store=False),
+        stt=deepgram.STT(model="nova-3", mip_opt_out=True),
         tts=cartesia.TTS(
             model="sonic-3",
             voice="f31cc6a7-c1e8-4764-980c-60a361443dd1",  # Australian woman voice

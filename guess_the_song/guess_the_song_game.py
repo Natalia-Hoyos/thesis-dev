@@ -280,6 +280,7 @@ class GuessTheSongGame:
                 model=self.model,
                 messages=messages,
                 temperature=0.7,
+                store=False,
             )
             raw = response.choices[0].message.content
             clue = raw.strip() if isinstance(raw, str) else ""
