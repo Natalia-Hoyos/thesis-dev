@@ -64,18 +64,100 @@ class CrosswordGame:
 
     def get_crossword_clue(self) -> str:
         current = self._require_current_puzzle()
-        if current["current_index"] >= len(current["words"]):
+        word = self._current_word(current)
+        if word is None:
             return "This crossword is already complete. Start a new one if they'd like another."
 
-        word = current["words"][current["current_index"]]
         return f"{self._clue_delivery_instructions()}{self._format_clue(word)}"
+
+    def select_word(self, word_number: int) -> str:
+        """Switch focus to a specific unsolved word by its clue number."""
+        current = self._require_current_puzzle()
+        words = current["words"]
+        solved_numbers = set(current.get("solved_numbers", []))
+
+        target_index = self._index_for_number(words, word_number)
+        if target_index is None:
+            available = [
+                str(w["number"]) for w in words if w["number"] not in solved_numbers
+            ]
+            available_text = ", ".join(available) if available else "none"
+            return (
+                f"There is no word numbered {word_number} in this puzzle. "
+                f"Unsolved numbers are: {available_text}."
+            )
+
+        if word_number in solved_numbers:
+            next_index = self._next_unsolved_index(current, after_index=target_index - 1)
+            if next_index is None:
+                return "That word is already filled in, and the crossword is complete!"
+            next_word = words[next_index]
+            current["current_index"] = next_index
+            current["hints_used"] = 0
+            self._save_current_puzzle(current)
+            self._sync_display(current)
+            return (
+                f"Number {word_number} is already filled in. "
+                f"Switching to unsolved number {next_word['number']} instead:\n\n"
+                f"{self._clue_delivery_instructions()}"
+                f"{self._format_clue(next_word)}"
+            )
+
+        current["current_index"] = target_index
+        current["hints_used"] = 0
+        self._save_current_puzzle(current)
+        self._sync_display(current)
+
+        word = words[target_index]
+        return (
+            f"Switching to number {word['number']}.\n\n"
+            f"{self._clue_delivery_instructions()}"
+            f"{self._format_clue(word)}"
+        )
+
+    def skip_word(self) -> str:
+        """Skip the current word and move to the next unsolved one."""
+        current = self._require_current_puzzle()
+        words = current["words"]
+        index = current.get("current_index", 0)
+
+        if self._is_complete(current):
+            return "This crossword is already complete. Start a new one if they'd like another."
+
+        # If current index is past the end or on a solved word, still find next unsolved.
+        next_index = self._next_unsolved_index(current, after_index=index)
+        if next_index is None:
+            return "There are no unsolved words left—they've completed the crossword!"
+
+        if next_index == index and words[index]["number"] not in set(
+            current.get("solved_numbers", [])
+        ):
+            # Only one unsolved word left, and it's the current one.
+            return (
+                "This is the only unsolved word left, so we can't skip it. "
+                "Encourage them to keep trying, ask for a hint, or give up on this word.\n\n"
+                f"{self._clue_delivery_instructions()}"
+                f"{self._format_clue(words[index])}"
+            )
+
+        current["current_index"] = next_index
+        current["hints_used"] = 0
+        self._save_current_puzzle(current)
+        self._sync_display(current)
+
+        word = words[next_index]
+        return (
+            f"Skipping for now. Moving to number {word['number']}.\n\n"
+            f"{self._clue_delivery_instructions()}"
+            f"{self._format_clue(word)}"
+        )
 
     def get_crossword_hint(self) -> str:
         current = self._require_current_puzzle()
-        if current["current_index"] >= len(current["words"]):
+        word = self._current_word(current)
+        if word is None:
             return "This crossword is already complete. Start a new one if they'd like another."
 
-        word = current["words"][current["current_index"]]
         hints_used = int(current.get("hints_used", 0))
         alternate_clue = word.get("alternate_clue")
 
@@ -110,11 +192,11 @@ class CrosswordGame:
         current = self._require_current_puzzle()
         index = current["current_index"]
         words = current["words"]
+        word = self._current_word(current)
 
-        if index >= len(words):
+        if word is None:
             return "This crossword is already complete. Start a new one if they'd like another."
 
-        word = words[index]
         expected = word["answer"]
         number = word["number"]
 
@@ -122,31 +204,38 @@ class CrosswordGame:
         if number not in solved_numbers:
             solved_numbers.append(number)
         current["solved_numbers"] = solved_numbers
-        current["current_index"] = index + 1
         current["hints_used"] = 0
+
+        next_index = self._next_unsolved_index(current, after_index=index)
+        if next_index is None:
+            current["current_index"] = len(words)
+            self._save_current_puzzle(current)
+            self._sync_display(current)
+            return (
+                f"The answer was {expected}.\n\n"
+                "That was the last word—they've completed the crossword!"
+            )
+
+        current["current_index"] = next_index
         self._save_current_puzzle(current)
         self._sync_display(current)
 
-        result = f"The answer was {expected}."
-        if current["current_index"] < len(words):
-            next_word = words[current["current_index"]]
-            return (
-                f"{result}\n\n"
-                f"{self._clue_delivery_instructions()}"
-                f"{self._format_clue(next_word)}"
-            )
-
-        return f"{result}\n\nThat was the last word—they've completed the crossword!"
+        next_word = words[next_index]
+        return (
+            f"The answer was {expected}.\n\n"
+            f"{self._clue_delivery_instructions()}"
+            f"{self._format_clue(next_word)}"
+        )
 
     def check_answer(self, answer: str) -> str:
         current = self._require_current_puzzle()
         index = current["current_index"]
         words = current["words"]
+        word = self._current_word(current)
 
-        if index >= len(words):
+        if word is None:
             return "This crossword is already complete. Start a new one if they'd like another."
 
-        word = words[index]
         expected = word["answer"]
         is_correct = self._is_match(answer, expected)
 
@@ -163,22 +252,28 @@ class CrosswordGame:
         if number not in solved_numbers:
             solved_numbers.append(number)
         current["solved_numbers"] = solved_numbers
-        current["current_index"] = index + 1
         current["hints_used"] = 0
+
+        next_index = self._next_unsolved_index(current, after_index=index)
+        if next_index is None:
+            current["current_index"] = len(words)
+            self._save_current_puzzle(current)
+            self._sync_display(current)
+            return (
+                f"Correct! The answer is {expected}.\n\n"
+                "That was the last word—they've completed the crossword!"
+            )
+
+        current["current_index"] = next_index
         self._save_current_puzzle(current)
         self._sync_display(current)
 
-        result = f"Correct! The answer is {expected}."
-
-        if current["current_index"] < len(words):
-            next_word = words[current["current_index"]]
-            return (
-                f"{result}\n\n"
-                f"{self._clue_delivery_instructions()}"
-                f"{self._format_clue(next_word)}"
-            )
-
-        return f"{result}\n\nThat was the last word—they've completed the crossword!"
+        next_word = words[next_index]
+        return (
+            f"Correct! The answer is {expected}.\n\n"
+            f"{self._clue_delivery_instructions()}"
+            f"{self._format_clue(next_word)}"
+        )
 
     def _require_current_puzzle(self) -> dict[str, Any]:
         state = self._load_state()
@@ -186,6 +281,46 @@ class CrosswordGame:
         if not isinstance(current, dict):
             raise ValueError("No active crossword. Start a crossword first.")
         return current
+
+    def _is_complete(self, current: dict[str, Any]) -> bool:
+        words = current.get("words", [])
+        solved = set(current.get("solved_numbers", []))
+        return bool(words) and all(w["number"] in solved for w in words)
+
+    def _current_word(self, current: dict[str, Any]) -> dict[str, Any] | None:
+        words = current.get("words", [])
+        if not words or self._is_complete(current):
+            return None
+        index = current.get("current_index", 0)
+        if not isinstance(index, int) or not (0 <= index < len(words)):
+            index = self._next_unsolved_index(current, after_index=-1)
+            if index is None:
+                return None
+        word = words[index]
+        if word["number"] in set(current.get("solved_numbers", [])):
+            index = self._next_unsolved_index(current, after_index=index)
+            if index is None:
+                return None
+            word = words[index]
+        return word
+
+    def _index_for_number(self, words: list[dict[str, Any]], word_number: int) -> int | None:
+        for idx, word in enumerate(words):
+            if word["number"] == word_number:
+                return idx
+        return None
+
+    def _next_unsolved_index(self, current: dict[str, Any], *, after_index: int) -> int | None:
+        words = current.get("words", [])
+        solved = set(current.get("solved_numbers", []))
+        if not words:
+            return None
+        n = len(words)
+        for offset in range(1, n + 1):
+            idx = (after_index + offset) % n
+            if words[idx]["number"] not in solved:
+                return idx
+        return None
 
     def _save_current_puzzle(self, current: dict[str, Any]) -> None:
         state = self._load_state()
