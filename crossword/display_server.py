@@ -95,6 +95,7 @@ def _html_page() -> str:
       padding-bottom: 0.5rem;
     }
     .crossword-grid {
+      --cell-size: 3rem;
       display: grid;
       gap: 0;
       border: 3px solid var(--block);
@@ -103,8 +104,8 @@ def _html_page() -> str:
     }
     .cell {
       position: relative;
-      width: clamp(2.4rem, 6vw, 3.4rem);
-      height: clamp(2.4rem, 6vw, 3.4rem);
+      width: var(--cell-size);
+      height: var(--cell-size);
       background: #fff;
       border: 1px solid var(--cell-border);
     }
@@ -114,7 +115,8 @@ def _html_page() -> str:
     }
     .cell.current {
       background: #eef3ff;
-      box-shadow: inset 0 0 0 2px #2f6fed;
+      box-shadow: inset 0 0 0 3px var(--accent);
+      z-index: 1;
     }
     .cell.solved {
       background: #f4fbf7;
@@ -123,7 +125,7 @@ def _html_page() -> str:
       position: absolute;
       top: 0.12rem;
       left: 0.18rem;
-      font-size: 0.62rem;
+      font-size: calc(var(--cell-size) * 0.24);
       font-weight: 700;
       color: var(--text);
       line-height: 1;
@@ -136,7 +138,7 @@ def _html_page() -> str:
       align-items: center;
       justify-content: center;
       font-family: "Consolas", "Courier New", monospace;
-      font-size: clamp(1.2rem, 3vw, 1.75rem);
+      font-size: calc(var(--cell-size) * 0.55);
       font-weight: 700;
       color: var(--blank);
       text-transform: uppercase;
@@ -203,7 +205,9 @@ def _html_page() -> str:
       gridWrapEl.hidden = false;
       completeEl.hidden = !state.complete;
 
-      gridEl.style.gridTemplateColumns = `repeat(${grid.cols}, 1fr)`;
+      const cellSize = Math.max(26, Math.min(54, Math.floor(720 / grid.cols)));
+      gridEl.style.setProperty("--cell-size", `${cellSize}px`);
+      gridEl.style.gridTemplateColumns = `repeat(${grid.cols}, var(--cell-size))`;
       gridEl.innerHTML = grid.cells.map((cell) => {
         if (cell.type === "block") {
           return '<div class="cell block"></div>';

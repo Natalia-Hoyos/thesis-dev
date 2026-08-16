@@ -2,7 +2,6 @@
   {
     "id": "crossword_01",
     "title": "Crossword 1",
-    "difficulty": "easy",
     "size": { "rows": 7, "cols": 14 },
     "words": [
       {
@@ -52,6 +51,93 @@
         "row": 0,
         "col": 13,
         "direction": "down"
+      }
+    ]
+  },
+  {
+    "id": "crossword_02",
+    "title": "Crossword 2",
+    "size": { "rows": 12, "cols": 10 },
+    "words": [
+      {
+        "number": 1,
+        "answer": "OHMS",
+        "clue": "Measures of electrical resistance",
+        "row": 0,
+        "col": 2,
+        "direction": "across"
+      },
+      {
+        "number": 2,
+        "answer": "MAPLE",
+        "clue": "Syrup source",
+        "row": 0,
+        "col": 4,
+        "direction": "down"
+      },
+      {
+        "number": 3,
+        "answer": "ENORMOUS",
+        "clue": "Synonym of Giant",
+        "row": 1,
+        "col": 7,
+        "direction": "down"
+      },
+      {
+        "number": 4,
+        "answer": "HULA",
+        "clue": "Hawaiian dance",
+        "row": 2,
+        "col": 2,
+        "direction": "down"
+      },
+      {
+        "number": 5,
+        "answer": "BLUEBERRY",
+        "clue": "Fruit often found in muffins",
+        "row": 4,
+        "col": 1,
+        "direction": "across"
+      },
+      {
+        "number": 6,
+        "answer": "ROO",
+        "clue": "Nickname for aussie hopper animal",
+        "row": 6,
+        "col": 6,
+        "direction": "across"
+      },
+      {
+        "number": 7,
+        "answer": "GRASS",
+        "clue": "Wimbledon tennis tournament surface",
+        "row": 7,
+        "col": 2,
+        "direction": "down"
+      },
+      {
+        "number": 8,
+        "answer": "HISS",
+        "clue": "Sound from kettle or a snake",
+        "row": 7,
+        "col": 5,
+        "direction": "down"
+      },
+      {
+        "number": 9,
+        "answer": "CRITICS",
+        "clue": "Theater reviewers or judges",
+        "row": 8,
+        "col": 1,
+        "direction": "across"
+      },
+      {
+        "number": 10,
+        "answer": "FIST",
+        "clue": "Clenched Hand",
+        "row": 10,
+        "col": 0,
+        "direction": "across"
       }
     ]
   }

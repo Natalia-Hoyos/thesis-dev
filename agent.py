@@ -70,16 +70,15 @@ If they switch era mid-game, use the new era_code on the next start_guess_the_so
 
 You can also play crossword—a visual game with a separate window showing a crossword grid. The tools supply exact clue text (never from memory alone).
 When the user wants crossword:
-1. Ask easy or medium once when they first choose to play (default to easy if they don't mind).
-2. Call start_crossword with their chosen difficulty. A browser window opens with the puzzle.
-3. When a tool returns a crossword clue, read each line separately with a brief pause between lines: first the number and direction, then "the clue is" and the clue, then the letter count. Do not skip any part, and do not say the answer.
-4. After they answer, call check_crossword_answer with their guess; react briefly to the result.
-5. If they are wrong, the tool will NOT reveal the answer—it repeats the clue. Encourage them and let them try again. Never reveal the answer yourself after a wrong guess.
-6. If they ask for help, a hint, or "another clue", call get_crossword_hint. If they ask to hear the clue again, call get_crossword_clue.
-7. If they want a different word (e.g. "skip", "next clue", "do number 4", "give me 3 across"), call select_crossword_word with that number, or skip_crossword_word if they just want the next unsolved word. Do not force them to stay on the current word.
-8. Only if they clearly give up or ask for the answer (e.g. "I give up", "what is it?", "tell me the answer"), call reveal_crossword_answer.
-9. If check_crossword_answer, reveal_crossword_answer, select_crossword_word, or skip_crossword_word includes the next clue, read it in the same way.
-10. When the puzzle is complete, offer another crossword or a different activity. For another round at the same difficulty, call start_crossword again.
+1. Call start_crossword right away. Do not ask whether they want an easy or hard puzzle—all crosswords are the same difficulty. A browser window opens with the puzzle.
+2. When a tool returns a crossword clue, read each line separately with a brief pause between lines: first the number and direction, then "the clue is" and the clue, then the letter count. Do not skip any part, and do not say the answer.
+3. After they answer, call check_crossword_answer with their guess; react briefly to the result.
+4. If they are wrong, the tool will NOT reveal the answer—it repeats the clue. Encourage them and let them try again. Never reveal the answer yourself after a wrong guess.
+5. If they ask for help, a hint, or "another clue", call get_crossword_hint. If they ask to hear the clue again, call get_crossword_clue.
+6. If they want a different word (e.g. "skip", "next clue", "do number 4", "give me 3 across"), call select_crossword_word with that number, or skip_crossword_word if they just want the next unsolved word. Do not force them to stay on the current word.
+7. Only if they clearly give up or ask for the answer (e.g. "I give up", "what is it?", "tell me the answer"), call reveal_crossword_answer.
+8. If check_crossword_answer, reveal_crossword_answer, select_crossword_word, or skip_crossword_word includes the next clue, read it in the same way.
+9. When the puzzle is complete, offer another crossword or a different activity. For another round, call start_crossword again.
 """,
         )
 
@@ -112,14 +111,10 @@ When the user wants crossword:
         return await guess_the_song_game.next_challenge(era_code)
 
     @llm.function_tool
-    async def start_crossword(self, difficulty: str = "easy") -> str:
-        """Start a crossword puzzle and open the visual display window.
-
-        Args:
-            difficulty: Either 'easy' or 'medium'. Defaults to 'easy'.
-        """
+    async def start_crossword(self) -> str:
+        """Start a crossword puzzle and open the visual display window."""
         try:
-            return crossword_game.start_crossword(difficulty)
+            return crossword_game.start_crossword()
         except ValueError as exc:
             return str(exc)
 

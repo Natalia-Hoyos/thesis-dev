@@ -89,33 +89,30 @@ class CrosswordGame:
         self.state_path = state_path
         self._puzzles = self._load_puzzles()
 
-    def start_crossword(self, difficulty: str = "easy") -> str:
-        normalized = difficulty if difficulty in ("easy", "medium") else "easy"
-        puzzles = [p for p in self._puzzles if p["difficulty"] == normalized]
+    def start_crossword(self) -> str:
+        puzzles = self._puzzles
         if not puzzles:
-            raise ValueError(f"No crossword puzzles configured for difficulty '{normalized}'.")
+            raise ValueError("No crossword puzzles are configured.")
 
         state = self._load_state()
-        asked_ids = set(state["asked_by_difficulty"].get(normalized, []))
+        asked_ids = set(state["asked_ids"])
         available = [p for p in puzzles if p["id"] not in asked_ids]
 
         exhaustion_prefix = ""
         if not available:
-            state["asked_by_difficulty"][normalized] = []
             asked_ids = set()
             available = puzzles
             exhaustion_prefix = (
-                "You've already played each crossword at this level, so we've shuffled "
+                "You've already played each crossword, so we've shuffled "
                 "the deck—you're getting a fresh run.\n\n"
             )
 
         selected = random.choice(available)
         asked_ids.add(selected["id"])
-        state["asked_by_difficulty"][normalized] = sorted(asked_ids)
+        state["asked_ids"] = sorted(asked_ids)
         state["current_puzzle"] = {
             "id": selected["id"],
             "title": selected["title"],
-            "difficulty": normalized,
             "size": selected["size"],
             "words": selected["words"],
             "current_index": 0,
@@ -560,7 +557,6 @@ class CrosswordGame:
 
             puzzle_id = item.get("id")
             title = item.get("title")
-            difficulty = item.get("difficulty")
             raw_words = item.get("words")
             raw_size = item.get("size")
             if (
@@ -568,7 +564,6 @@ class CrosswordGame:
                 or not puzzle_id.strip()
                 or not isinstance(title, str)
                 or not title.strip()
-                or difficulty not in ("easy", "medium")
                 or not isinstance(raw_words, list)
                 or not raw_words
                 or not isinstance(raw_size, dict)
@@ -628,7 +623,6 @@ class CrosswordGame:
                     {
                         "id": puzzle_id.strip(),
                         "title": title.strip(),
-                        "difficulty": difficulty,
                         "size": {"rows": rows, "cols": cols},
                         "words": sorted(words, key=lambda w: w["number"]),
                     }
@@ -639,35 +633,39 @@ class CrosswordGame:
 
         return puzzles
 
+    def _empty_state(self) -> dict[str, Any]:
+        return {
+            "asked_ids": [],
+            "current_puzzle": None,
+        }
+
     def _load_state(self) -> dict[str, Any]:
         if not self.state_path.exists():
-            return {
-                "asked_by_difficulty": {"easy": [], "medium": []},
-                "current_puzzle": None,
-            }
+            return self._empty_state()
 
         raw_state = json.loads(self.state_path.read_text(encoding="utf-8"))
         if not isinstance(raw_state, dict):
-            return {
-                "asked_by_difficulty": {"easy": [], "medium": []},
-                "current_puzzle": None,
-            }
+            return self._empty_state()
 
-        asked = raw_state.get("asked_by_difficulty", {})
-        if not isinstance(asked, dict):
-            asked = {}
+        asked_ids = raw_state.get("asked_ids", [])
+        if not isinstance(asked_ids, list):
+            asked_ids = []
 
-        easy = asked.get("easy", [])
-        medium = asked.get("medium", [])
+        # Older sessions tracked played puzzles per difficulty; fold those into one list.
+        asked_by_difficulty = raw_state.get("asked_by_difficulty", {})
+        if isinstance(asked_by_difficulty, dict):
+            for bucket in asked_by_difficulty.values():
+                if isinstance(bucket, list):
+                    asked_ids.extend(item for item in bucket if isinstance(item, str))
+
         current_puzzle = raw_state.get("current_puzzle")
         if not isinstance(current_puzzle, dict):
             current_puzzle = None
+        elif "difficulty" in current_puzzle:
+            current_puzzle = {key: value for key, value in current_puzzle.items() if key != "difficulty"}
 
         return {
-            "asked_by_difficulty": {
-                "easy": [item for item in easy if isinstance(item, str)],
-                "medium": [item for item in medium if isinstance(item, str)],
-            },
+            "asked_ids": sorted(set(item for item in asked_ids if isinstance(item, str))),
             "current_puzzle": current_puzzle,
         }
 
