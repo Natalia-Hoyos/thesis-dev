@@ -7,6 +7,80 @@ from typing import Any
 from crossword.display_server import ensure_running, update_state
 
 
+def find_layout_errors(rows: int, cols: int, words: list[dict[str, Any]]) -> list[str]:
+    """Report layout problems that would make the grid read as a non-crossword.
+
+    Any cell no word occupies is a black square, so two entries that sit side by side
+    with no empty cell between them merge into a single unbroken run of letters. This
+    checks the real crossword rule: every maximal run of two or more adjacent letters,
+    in either direction, must be exactly one of the puzzle's declared words.
+    """
+    errors: list[str] = []
+    letters: dict[tuple[int, int], str] = {}
+
+    for word in words:
+        number = word["number"]
+        answer = word["answer"]
+        delta_row, delta_col = (0, 1) if word["direction"] == "across" else (1, 0)
+        last_offset = len(answer) - 1
+        end_row = word["row"] + last_offset * delta_row
+        end_col = word["col"] + last_offset * delta_col
+        if end_row >= rows or end_col >= cols:
+            errors.append(
+                f"Word {number} ({answer}) runs outside the {rows}x{cols} grid."
+            )
+            continue
+
+        for offset, letter in enumerate(answer):
+            position = (word["row"] + offset * delta_row, word["col"] + offset * delta_col)
+            existing = letters.get(position)
+            if existing is not None and existing != letter:
+                errors.append(
+                    f"Word {number} ({answer}) needs '{letter}' at row {position[0]}, "
+                    f"column {position[1]}, but another word puts '{existing}' there."
+                )
+            else:
+                letters[position] = letter
+
+    if errors:
+        # Run scanning would only produce noise on top of broken coordinates.
+        return errors
+
+    declared = {
+        (word["row"], word["col"], word["direction"], len(word["answer"]))
+        for word in words
+    }
+
+    for direction, delta_row, delta_col in (("across", 0, 1), ("down", 1, 0)):
+        for row in range(rows):
+            for col in range(cols):
+                if (row, col) not in letters:
+                    continue
+                if (row - delta_row, col - delta_col) in letters:
+                    continue
+
+                length = 0
+                while (row + length * delta_row, col + length * delta_col) in letters:
+                    length += 1
+                if length < 2 or (row, col, direction, length) in declared:
+                    continue
+
+                run = "".join(
+                    letters[(row + i * delta_row, col + i * delta_col)]
+                    for i in range(length)
+                )
+                span = "columns" if direction == "across" else "rows"
+                line = f"Row {row}" if direction == "across" else f"Column {col}"
+                start = col if direction == "across" else row
+                errors.append(
+                    f"{line} {span} {start}-{start + length - 1} spell '{run}' {direction}, "
+                    f"which is not one of this puzzle's {direction} words. Leave an empty "
+                    "cell between entries that are not meant to join."
+                )
+
+    return errors
+
+
 class CrosswordGame:
     """Crossword with curated puzzle bank, grid display, and local display window."""
 
@@ -543,6 +617,13 @@ class CrosswordGame:
                     words.append(entry)
 
             if words:
+                layout_errors = find_layout_errors(rows, cols, words)
+                if layout_errors:
+                    details = "\n  - ".join(layout_errors)
+                    raise ValueError(
+                        f"Crossword '{puzzle_id}' has an invalid grid layout:\n  - {details}"
+                    )
+
                 puzzles.append(
                     {
                         "id": puzzle_id.strip(),
