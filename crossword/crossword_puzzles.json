@@ -140,5 +140,108 @@
         "direction": "across"
       }
     ]
+  },
+  {
+    "id": "crossword_03",
+    "title": "Crossword 3",
+    "size": { "rows": 14, "cols": 9 },
+    "words": [
+      {
+        "number": 1,
+        "answer": "PAGE",
+        "clue": "Part of a book",
+        "row": 0,
+        "col": 1,
+        "direction": "across"
+      },
+      {
+        "number": 2,
+        "answer": "ANTI",
+        "clue": "Prefix meaning \"opposed to\"",
+        "row": 0,
+        "col": 2,
+        "direction": "down"
+      },
+      {
+        "number": 3,
+        "answer": "WAIST",
+        "clue": "Body place for a belt",
+        "row": 2,
+        "col": 0,
+        "direction": "down"
+      },
+      {
+        "number": 4,
+        "answer": "ARIZONA",
+        "clue": "USA State that's home to Grand Canyon National Park",
+        "row": 3,
+        "col": 0,
+        "direction": "across"
+      },
+      {
+        "number": 5,
+        "answer": "APES",
+        "clue": "Chimpanzees and others",
+        "row": 3,
+        "col": 6,
+        "direction": "down"
+      },
+      {
+        "number": 6,
+        "answer": "SAND",
+        "clue": "Grains on the beach",
+        "row": 5,
+        "col": 0,
+        "direction": "across"
+      },
+      {
+        "number": 7,
+        "answer": "DESIST",
+        "clue": "Stop, or refrain from doing",
+        "row": 5,
+        "col": 3,
+        "direction": "down"
+      },
+      {
+        "number": 8,
+        "answer": "GEL",
+        "clue": "Hairstyling goo",
+        "row": 5,
+        "col": 5,
+        "direction": "across"
+      },
+      {
+        "number": 9,
+        "answer": "GLANCE",
+        "clue": "To take a quick look at something",
+        "row": 7,
+        "col": 5,
+        "direction": "down"
+      },
+      {
+        "number": 10,
+        "answer": "USUAL",
+        "clue": "Synonym of standard",
+        "row": 9,
+        "col": 2,
+        "direction": "across"
+      },
+      {
+        "number": 11,
+        "answer": "RIO",
+        "clue": "2016 Olympics host city, for short",
+        "row": 11,
+        "col": 8,
+        "direction": "down"
+      },
+      {
+        "number": 12,
+        "answer": "YETTI",
+        "clue": "Mythical mountain ice creature",
+        "row": 12,
+        "col": 4,
+        "direction": "across"
+      }
+    ]
   }
 ]
