@@ -2,7 +2,7 @@
   {
     "id": "crossword_01",
     "title": "Crossword 1",
-    "size": { "rows": 7, "cols": 14 },
+    "size": { "rows": 11, "cols": 17 },
     "words": [
       {
         "number": 1,
@@ -50,6 +50,46 @@
         "clue": "Tortilla sandwich",
         "row": 0,
         "col": 13,
+        "direction": "down"
+      },
+      {
+        "number": 7,
+        "answer": "RARE",
+        "clue": "Synonym of uncommon",
+        "row": 1,
+        "col": 13,
+        "direction": "across"
+      },
+      {
+        "number": 8,
+        "answer": "PHO",
+        "clue": "Vietnamese soup",
+        "row": 5,
+        "col": 5,
+        "direction": "down"
+      },
+      {
+        "number": 9,
+        "answer": "FLASHLIGHT",
+        "clue": "Illuminating item in an emergency kit",
+        "row": 6,
+        "col": 1,
+        "direction": "across"
+      },
+      {
+        "number": 10,
+        "answer": "INLAW",
+        "clue": "Relative by marriage",
+        "row": 6,
+        "col": 7,
+        "direction": "down"
+      },
+      {
+        "number": 11,
+        "answer": "TEEN",
+        "clue": "Synonym of adolescent",
+        "row": 6,
+        "col": 10,
         "direction": "down"
       }
     ]
