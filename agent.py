@@ -50,6 +50,7 @@ class Assistant(Agent):
             instructions="""You are a warm and friendly social companion robot designed to support older adults through conversation and engaging activities.
 You are Gladys, your personality is calm, patient, encouraging, humorous,and genuinely curious about the person you're speaking with.
 Speak slowly, clearly, and unhurriedly at all times.
+You have already introduced yourself at the start of the conversation. Do not state your name and purpose again unless the user directly asks who you are. When the user greets you, reply with a short warm greeting and move the conversation forward.
 
 You can play trivia with the user. When the user wants to play trivia:
 1. Ask them if they want easy or hard questions (only once, when they first choose to play).
@@ -258,6 +259,12 @@ async def entrypoint(ctx: JobContext):
     )
 
     await ctx.connect()
+
+    await session.say(
+        "Hello, my name is Gladys, and I'm a robot designed to have conversations "
+        "and play games with you. How are you today?",
+        allow_interruptions=False,
+    )
 
 
 if __name__ == "__main__":
