@@ -48,18 +48,6 @@ The following are required:
 
 Install the dependencies, set the API keys as environment variables and start the agent worker. Refer to the LiveKit Agents documentation for the worker commands. Connecting a MyCo robot to a LiveKit project requires configuration by Stones Corner AI. Without one, the agent can be tested from any other LiveKit client.
 
-## Evaluation
-
-Gladys was tested at Blue Care's day respite centre in Gatton, Queensland, with four cognitively healthy adults aged 65 and over. Each participant completed one session of about 20 minutes. Data were collected through an emoji-based mood activity before and after each session, short interviews, observation notes and a researcher debrief. The study was approved by QUT's University Human Research Ethics Committee (approval ID 11365). Responses were analysed using reflexive thematic analysis.
-
-The main findings were:
-
-- Conversation took over from games. Participants spent more of their sessions discussing their families and past work than playing trivia.
-- Participants were impressed that Gladys followed the conversation, but none said they would use it again.
-- All four participants selected a positive mood after the session.
-- Three faults disrupted otherwise natural conversation: trivia sometimes failed to recognise correct answers, Gladys interrupted participants who paused mid-story, and head tracking failed in one session.
-
-The sample was small and drawn from a single site, and no cognitive outcomes were measured. The findings are a first indication of how older adults respond to the system. They do not show that Gladys supports cognitive function. The final report describes the limitations in full.
 
 ## Privacy
 
